@@ -59,7 +59,7 @@ class outgoingServer(SMTPServer):
           image += '<img '+name+' src="data:'+filetype+'base64,'+imagedata+'" />'
         elif 'multipart' in item['Content-Type']:
           firstTest_new, text_new, image_new = self._recurseParse(item)
-          text += firstText_new + text_new
+          text += firstTest_new + text_new
           image += image_new
         else:
           #Note that there's a chance we may die horribly if nothing returns.
@@ -110,4 +110,4 @@ def run():
 
 
 if __name__ == '__main__':
-	run()
+    run()
