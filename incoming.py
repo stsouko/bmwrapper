@@ -12,28 +12,32 @@ import logging
 
 class ChatterboxConnection(object):
     END = "\r\n"
+
     def __init__(self, conn):
-      self.conn = conn
+        self.conn = conn
+
     def __getattr__(self, name):
-      return getattr(self.conn, name)
+        return getattr(self.conn, name)
+
     def sendall(self, data, END=END):
-      data += END
-      self.conn.sendall(data)
+        data += END
+        self.conn.sendall(data)
+
     def recvall(self, END=END):
-      data = []
-      while True:
-        chunk = self.conn.recv(4096)
-        if END in chunk:
-          data.append(chunk[:chunk.index(END)])
-          break
-        data.append(chunk)
-        if len(data) > 1:
-          pair = data[-2] + data[-1]
-          if END in pair:
-            data[-2] = pair[:pair.index(END)]
-            data.pop()
-            break
-      return "".join(data)
+        data = []
+        while True:
+            chunk = self.conn.recv(4096)
+            if END in chunk:
+                data.append(chunk[:chunk.index(END)])
+                break
+            data.append(chunk)
+            if len(data) > 1:
+                pair = data[-2] + data[-1]
+                if END in pair:
+                    data[-2] = pair[:pair.index(END)]
+                    data.pop()
+                    break
+        return "".join(data)
 
 
 def handleUser(data):
@@ -48,27 +52,31 @@ def handleUser(data):
         bminterface.registerAddress(None)
     return "+OK user accepted"
 
+
 def handlePass(data):
     return "+OK pass accepted"
+
 
 def _getMsgSizes():
     msgCount = bminterface.listMsgs()
     msgSizes = []
     for msgID in range(msgCount):
-      logging.debug("Parsing msg %i of %i" % (msgID+1, msgCount))
-      dateTime, toAddress, fromAddress, subject, body = bminterface.get(msgID)
-      msgSizes.append(len(makeEmail(dateTime, toAddress, fromAddress, subject, body)))
+        logging.debug("Parsing msg %i of %i" % (msgID + 1, msgCount))
+        dateTime, toAddress, fromAddress, subject, body = bminterface.get(msgID)
+        msgSizes.append(len(makeEmail(dateTime, toAddress, fromAddress, subject, body)))
     return msgSizes
+
 
 def handleStat(data):
     msgSizes = _getMsgSizes()
     msgCount = len(msgSizes)
     msgSizeTotal = 0
     for msgSize in msgSizes:
-      msgSizeTotal += msgSize
+        msgSizeTotal += msgSize
     returnData = '+OK %i %i' % (msgCount, msgSizeTotal)
     logging.debug("Answering STAT: %i %i" % (msgCount, msgSizeTotal))
     return returnData
+
 
 def handleList(data):
     dataList = data.split()
@@ -87,9 +95,9 @@ def handleList(data):
     returnDataPart2 = ''
     msgSizeTotal = 0
     for msgSize in msgSizes:
-      msgSizeTotal += msgSize
-      msgCount += 1
-      returnDataPart2 += '%i %i\r\n' % (msgCount, msgSize)
+        msgSizeTotal += msgSize
+        msgCount += 1
+        returnDataPart2 += '%i %i\r\n' % (msgCount, msgSize)
     returnDataPart2 += '.'
     returnDataPart1 = '+OK %i messages (%i octets)\r\n' % (msgCount, msgSizeTotal)
     returnData = returnDataPart1 + returnDataPart2
@@ -97,38 +105,44 @@ def handleList(data):
     logging.debug(returnData)
     return returnData
 
+
 def handleTop(data):
     msg = 'test'
     logging.debug(data.split())
     cmd, msgID, lines = data.split()
-    msgID = int(msgID)-1
+    msgID = int(msgID) - 1
     lines = int(lines)
     logging.debug(lines)
     dateTime, toAddress, fromAddress, subject, body = bminterface.get(msgID)
     logging.debug(subject)
     msg = makeEmail(dateTime, toAddress, fromAddress, subject, body)
     top, bot = msg.split("\n\n", 1)
-    #text = top + "\r\n\r\n" + "\r\n".join(bot[:lines])
+    # text = top + "\r\n\r\n" + "\r\n".join(bot[:lines])
     return "+OK top of message follows\r\n%s\r\n." % top
+
 
 def handleRetr(data):
     logging.debug(data.split())
-    msgID = int(data.split()[1])-1
+    msgID = int(data.split()[1]) - 1
     dateTime, toAddress, fromAddress, subject, body = bminterface.get(msgID)
     msg = makeEmail(dateTime, toAddress, fromAddress, subject, body)
     return "+OK %i octets\r\n%s\r\n." % (len(msg), msg)
 
+
 def handleDele(data):
-    msgID = int(data.split()[1])-1
+    msgID = int(data.split()[1]) - 1
     bminterface.markForDelete(msgID)
     return "+OK I'll try..."
+
 
 def handleNoop(data):
     return "+OK"
 
+
 def handleQuit(data):
     bminterface.cleanup()
     return "+OK just pretend I'm gone"
+
 
 def handleCapa(data):
     returnData = "+OK List of capabilities follows\r\n"
@@ -137,86 +151,90 @@ def handleCapa(data):
     returnData += "."
     return returnData
 
+
 def handleUIDL(data):
     data = data.split()
     logging.debug(data)
     if len(data) == 1:
-      refdata = bminterface.getUIDLforAll()
-      logging.debug(refdata)
-      returnData = '+OK\r\n'
-      for msgID, d in enumerate(refdata):
-        returnData += "%s %s\r\n" % (msgID+1, d)
-      returnData += '.'
+        refdata = bminterface.getUIDLforAll()
+        logging.debug(refdata)
+        returnData = '+OK\r\n'
+        for msgID, d in enumerate(refdata):
+            returnData += "%s %s\r\n" % (msgID + 1, d)
+        returnData += '.'
     else:
-      refdata = bminterface.getUIDLforSingle(int(data[1])-1)
-      logging.debug(refdata)
-      returnData = '+OK ' + data[0] + str(refdata[0])
+        refdata = bminterface.getUIDLforSingle(int(data[1]) - 1)
+        logging.debug(refdata)
+        returnData = '+OK ' + data[0] + str(refdata[0])
     return returnData
-    
+
+
 def makeEmail(dateTime, toAddress, fromAddress, subject, body):
     body = parseBody(body)
     msgType = len(body)
     if msgType == 1:
-      msg = email.mime.text.MIMEText(body[0], 'plain', 'UTF-8')
+        msg = email.mime.text.MIMEText(body[0], 'plain', 'UTF-8')
     else:
-      msg = email.mime.multipart.MIMEMultipart('mixed')
-      bodyText = email.mime.text.MIMEText(body[0], 'plain', 'UTF-8')
-      body = body[1:]
-      msg.attach(bodyText)
-      for item in body:
-        img = 0
-        itemType, itemData = [0], [0]
-        try:
-          itemType, itemData = item.split(';', 1)
-          itemType = itemType.split('/', 1)
-        except:
-          logging.warning("Could not parse message type")
-          pass
-        if itemType[0] == 'image':
-          try:
-            itemDataFinal = itemData.lstrip('base64,').strip(' ').strip('\n').decode('base64')
-            img = email.mime.image.MIMEImage(itemDataFinal)
-          except:
-            #Some images don't auto-detect type correctly with email.mime.image
-            #Namely, jpegs with embeded color profiles look problematic
-            #Trying to set it manually...
+        msg = email.mime.multipart.MIMEMultipart('mixed')
+        bodyText = email.mime.text.MIMEText(body[0], 'plain', 'UTF-8')
+        body = body[1:]
+        msg.attach(bodyText)
+        for item in body:
+            img = 0
+            itemType, itemData = [0], [0]
             try:
-              itemDataFinal = itemData.lstrip('base64,').strip(' ').strip('\n').decode('base64')
-              img = email.mime.image.MIMEImage(itemDataFinal, _subtype=itemType[1])
+                itemType, itemData = item.split(';', 1)
+                itemType = itemType.split('/', 1)
             except:
-              logging.warning("Failed to parse image data. This could be an image.")
-              logging.warning("This could be from an image tag filled with junk data.")
-              logging.warning("It could also be a python email.mime.image problem.")
-          if img:
-            img.add_header('Content-Disposition', 'attachment')
-            msg.attach(img)
+                logging.warning("Could not parse message type")
+                pass
+            if itemType[0] == 'image':
+                try:
+                    itemDataFinal = itemData.lstrip('base64,').strip(' ').strip('\n').decode('base64')
+                    img = email.mime.image.MIMEImage(itemDataFinal)
+                except:
+                    # Some images don't auto-detect type correctly with email.mime.image
+                    #Namely, jpegs with embeded color profiles look problematic
+                    #Trying to set it manually...
+                    try:
+                        itemDataFinal = itemData.lstrip('base64,').strip(' ').strip('\n').decode('base64')
+                        img = email.mime.image.MIMEImage(itemDataFinal, _subtype=itemType[1])
+                    except:
+                        logging.warning("Failed to parse image data. This could be an image.")
+                        logging.warning("This could be from an image tag filled with junk data.")
+                        logging.warning("It could also be a python email.mime.image problem.")
+                if img:
+                    img.add_header('Content-Disposition', 'attachment')
+                    msg.attach(img)
     msg['To'] = toAddress
     msg['From'] = fromAddress
     msg['Subject'] = email.header.Header(subject, 'UTF-8')
     msg['Date'] = dateTime
     return msg.as_string()
-    
+
+
 def parseBody(body):
     returnData = []
     text = ''
     searchString = '<img[^>]*'
     attachment = re.search(searchString, body)
     while attachment:
-      imageCode = body[attachment.start():attachment.end()]
-      imageDataRange = re.search('src=[\"\'][^\"\']*[\"\']', imageCode)
-      imageData=''
-      if imageDataRange:
-        try:
-          imageData = imageCode[imageDataRange.start()+5:imageDataRange.end()-1].lstrip('data:')
-        except:
-          pass
-      if imageData:
-        returnData.append(imageData)
-      body = body[:attachment.start()] + body[attachment.end()+1:]
-      attachment = re.search(searchString, body)
+        imageCode = body[attachment.start():attachment.end()]
+        imageDataRange = re.search('src=[\"\'][^\"\']*[\"\']', imageCode)
+        imageData = ''
+        if imageDataRange:
+            try:
+                imageData = imageCode[imageDataRange.start() + 5:imageDataRange.end() - 1].lstrip('data:')
+            except:
+                pass
+        if imageData:
+            returnData.append(imageData)
+        body = body[:attachment.start()] + body[attachment.end() + 1:]
+        attachment = re.search(searchString, body)
     text = body
     returnData = [text] + returnData
     return returnData
+
 
 dispatch = dict(
     USER=handleUser,
@@ -238,6 +256,7 @@ def incomingServer(host, port, run_event):
     popthread.daemon = True
     popthread.start()
     return popthread
+
 
 def incomingServer_main(host, port, run_event):
     sock = None
@@ -274,9 +293,9 @@ def incomingServer_main(host, port, run_event):
                     conn.close()
 
     except (SystemExit, KeyboardInterrupt):
-      pass
+        pass
     except Exception, ex:
-      raise
+        raise
     finally:
         if sock is not None:
             sock.close()

@@ -1,4 +1,5 @@
 import ConfigParser
+import re
 import xmlrpclib
 import json
 import datetime
@@ -56,25 +57,16 @@ def _stripAddress(address):
     if 'broadcast' in address.lower():
         return 'broadcast', False
 
+    orig = address
+    address = re.search('(chan-)?BM-[0-9a-zA-Z]+', address).group()
     if 'chan-' in address.lower()[:5]:
         chan = True
+        address = address[5:]
     else:
         chan = False
 
-    orig = address
-    alphabet = '123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ'
-    retstring = ''
-    while address:
-        if address[:3] == 'BM-':
-            retstring = 'BM-'
-            address = address[3:]
-            while address[0] in alphabet:
-                retstring += address[0]
-                address = address[1:]
-        else:
-            address = address[1:]
-    logging.info("converted address " + orig + " to " + retstring)
-    return retstring, chan
+    logging.info("converted address " + orig + " to " + address)
+    return address, chan
 
 
 def registerAddress(address):
@@ -85,7 +77,7 @@ def registerAddress(address):
 
 def send(toAddress, fromAddress, subject, body):
     toAddress, chan = _stripAddress(toAddress)
-    fromAddress = _stripAddress(fromAddress)
+    fromAddress = _stripAddress(fromAddress)[0]
     subject = subject.encode('base64')
     body = body.encode('base64')
     if toAddress == 'broadcast':
